@@ -1,5 +1,5 @@
 import { OctahedralImpostorMaterial } from '../core/octahedralImpostorMaterial.js';
-import { createAlbedo, createDepthMap, CreateTextureAtlasParams } from '../utils/createTextureAtlas.js';
+import { createAtlasTexture, CreateTextureAtlasParams } from '../utils/createTextureAtlas.js';
 
 export interface OctahedralImpostorParams extends CreateTextureAtlasParams {
   transparent?: boolean;
@@ -10,10 +10,9 @@ export interface OctahedralImpostorParams extends CreateTextureAtlasParams {
 }
 
 export function generateOctahedralImpostorMaterial(options: OctahedralImpostorParams): OctahedralImpostorMaterial {
-  const albedoRT = createAlbedo(options);
-  const depthMapRT = createDepthMap(options);
-  const albedo = albedoRT.texture;
-  const normalDepthMap = depthMapRT.texture;
+  const atlasTexture = createAtlasTexture(options);
+  const albedo = atlasTexture.albedo;
+  const normalDepthMap = atlasTexture.normalDepthMap;
   const ormMap = null; // TODO
 
   const material = new OctahedralImpostorMaterial({
