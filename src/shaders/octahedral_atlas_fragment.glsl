@@ -12,7 +12,6 @@ uniform sampler2D u_albedo_tex;
 void main() {
 
     vec4 albedo = texture(u_albedo_tex, vUv);
-    vec3 normal = normalize(vNormal);
     float depth = gl_FragCoord.z;
 
     if (albedo.a < 0.5) {
@@ -20,5 +19,5 @@ void main() {
     }
 
     gAlbedo = albedo;
-    gNormalDepth = vec4(normal, depth);
+    gNormalDepth = vec4(vNormal, depth);
 }

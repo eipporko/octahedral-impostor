@@ -1,4 +1,4 @@
-import { NoColorSpace, Object3D, OrthographicCamera, Sphere, Vector2, Vector4, WebGLRenderer, WebGLRenderTarget, Texture, LinearFilter, HalfFloatType, LinearSRGBColorSpace, ShaderMaterial, UniformsUtils, DoubleSide, GLSL3 } from 'three';
+import { NoColorSpace, Object3D, OrthographicCamera, Sphere, Vector2, Vector4, WebGLRenderer, WebGLRenderTarget, Texture, LinearFilter, NearestFilter, UnsignedByteType, RGBAFormat, FloatType, ShaderMaterial, UniformsUtils, DoubleSide, GLSL3 } from 'three';
 import { computeObjectBoundingSphere } from './computeObjectBoundingSphere.js';
 import { hemiOctaGridToDir, octaGridToDir } from './octahedronUtils.js';
 
@@ -212,14 +212,19 @@ function createAtlas(params: CreateTextureAtlasParams, onBeforeRender?: () => vo
 
     const renderTarget = new WebGLRenderTarget(atlasSize, atlasSize, { colorSpace: NoColorSpace, count: 2 }); // TODO confirm these parameters and reuse same renderTarget
 
-    for (let i = 0; i < renderTarget.textures.length; i++) {
-      const texture = renderTarget.textures[i];
-      texture.minFilter = LinearFilter;
-      texture.magFilter = LinearFilter;
-      texture.generateMipmaps = false;
-      texture.type = HalfFloatType;
-      texture.colorSpace = LinearSRGBColorSpace;
-    }
+    const ALBEDO = 0;
+    const NORMAL_DEPTH = 1;
+    renderTarget.textures[ALBEDO].minFilter = LinearFilter;
+    renderTarget.textures[ALBEDO].magFilter = LinearFilter;
+    renderTarget.textures[ALBEDO].generateMipmaps = true;
+    renderTarget.textures[ALBEDO].type = UnsignedByteType;
+    renderTarget.textures[ALBEDO].format = RGBAFormat;
+
+    renderTarget.textures[NORMAL_DEPTH].minFilter = NearestFilter;
+    renderTarget.textures[NORMAL_DEPTH].magFilter = NearestFilter;
+    renderTarget.textures[NORMAL_DEPTH].generateMipmaps = false;
+    renderTarget.textures[NORMAL_DEPTH].type = FloatType;
+    renderTarget.textures[NORMAL_DEPTH].format = RGBAFormat;
 
     renderer.setRenderTarget(renderTarget);
     renderer.setScissorTest(true);
