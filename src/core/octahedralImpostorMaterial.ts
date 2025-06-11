@@ -1,128 +1,164 @@
-import { IUniform, ShaderMaterial, Texture } from 'three';
-import fragmentShader from '../shaders/fragment.glsl';
-import vertexShader from '../shaders/vertex.glsl';
+import {
+  IUniform, Material, MeshPhongMaterial, MeshStandardMaterial,
+  MeshPhysicalMaterial, MeshBasicMaterial,
+  MeshBasicMaterialParameters, MeshPhongMaterialParameters,
+  MeshStandardMaterialParameters, MeshPhysicalMaterialParameters,
+  WebGLRenderer, WebGLProgramParametersWithUniforms
+} from 'three';
 
-export type OctahedralImpostorDefines = 'EZ_USE_HEMI_OCTAHEDRON' | 'EZ_USE_NORMAL' | 'EZ_USE_ORM' | 'EZ_TRANSPARENT';
+import shaderChunkParamsVertex from '../shaders/impostor/octahedral_impostor_shader_params_vertex.glsl';
+import shaderChunkVertex from '../shaders/impostor/octahedral_impostor_shader_vertex.glsl';
+import shaderChunkParamsFragment from '../shaders/impostor/octahedral_impostor_shader_params_fragment.glsl';
+import shaderChunkMapFragment from '../shaders/impostor/octahedral_impostor_shader_map_fragment.glsl';
+import shaderChunkNormalFragmentBegin from '../shaders/impostor/octahedral_impostor_shader_normal_fragment_begin.glsl';
+
+export type OctahedralImpostorDefines = 'EZ_USE_HEMI_OCTAHEDRON';
 export type UniformValue<T> = T extends IUniform<infer U> ? U : never;
 
 export interface OctahedralImpostorUniforms {
-  spritesPerSide: IUniform<number>;
-  albedo: IUniform<Texture>;
-  normalDepthMap: IUniform<Texture>;
-  ormMap?: IUniform<Texture>;
-  parallaxScale: IUniform<number>;
-  alphaClamp: IUniform<number>;
+  u_sprites_per_side: IUniform<number>;
 }
 
 export interface OctahedralImpostorMaterialParameters {
-  spritesPerSide: number;
-  useHemiOctahedron: boolean;
-  albedo: Texture;
-  normalDepthMap: Texture;
-  ormMap?: Texture;
-  transparent?: boolean;
-  parallaxScale?: number;
-  alphaClamp?: number;
-  // opaqueBlending?: boolean; TODO
-  // borderClamp?: boolean; TODO
+  spritesPerSide?: number;
+  useHemiOctahedron?: boolean;
+  isOctahedralImpostorMaterial?: boolean;
 }
 
-export class OctahedralImpostorMaterial extends ShaderMaterial {
-  public override readonly type = 'OctahedralImpostorMaterial';
-  public override uniforms: OctahedralImpostorUniforms & { [key: string]: IUniform };
-  public override vertexShader = vertexShader;
-  public override fragmentShader = fragmentShader;
-  public readonly isOctahedralImpostorMaterial = true;
-  protected _useHemiOctaheron: boolean;
-  protected _transparent: boolean;
 
-  public get spritesPerSide(): number { return this.uniforms.spritesPerSide.value; }
-  public set spritesPerSide(value) { this.setUniform('spritesPerSide', value); }
+type MaterialConstructor<T extends Material = Material> = new (...args: any[]) => T;
 
-  public get useHemiOctaheron(): boolean { return this._useHemiOctaheron; }
-  public set useHemiOctaheron(value) {
-    this._useHemiOctaheron = value;
-    this.updateDefines(value, 'EZ_USE_HEMI_OCTAHEDRON');
-  }
+type OctahedralBasicMaterialParameters = MeshBasicMaterialParameters & OctahedralImpostorMaterialParameters;
+type OctahedralPhongMaterialParameters = MeshPhongMaterialParameters & OctahedralImpostorMaterialParameters;
+type OctahedralStandardMaterialParameters = MeshStandardMaterialParameters & OctahedralImpostorMaterialParameters;
+type OctahedralPhysicalMaterialParameters = MeshPhysicalMaterialParameters & OctahedralImpostorMaterialParameters;
 
-  public get albedo(): Texture { return this.uniforms.albedo.value; }
-  public set albedo(texture) { this.setUniform('albedo', texture); }
+function createOctahedralImpostorPatchedMaterial<
+  T extends MaterialConstructor,
+  U extends OctahedralImpostorMaterialParameters & ConstructorParameters<T>[0]
+>(BaseMaterial: T): MaterialConstructor<InstanceType<T>> & { new(params?: U): InstanceType<T> } {
 
-  public get normalDepthMap(): Texture { return this.uniforms.normalDepthMap.value; }
-  public set normalDepthMap(texture) {
-    this.setUniform('normalDepthMap', texture);
-    // this.updateDefines(texture?.format === RGBAFormat, 'EZ_USE_NORMAL'); TODO when we'll pack the normal map and depth map
-  }
+  class PatchedMaterial extends BaseMaterial {
+    //public override readonly type = 'OctahedralImpostorMaterial';
+    public readonly baseName = BaseMaterial.name;
+    public readonly isOctahedralImpostorMaterial = true;
+    private _octahedralUniforms: OctahedralImpostorUniforms & { [key: string]: IUniform };
+    private _octahedralDefines: { [key: string]: string };
+    private _originalOnBeforeCompile?: (shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer) => void;
 
-  public get ormMap(): Texture { return this.uniforms.ormMap.value; }
-  public set ormMap(texture) {
-    this.setUniform('ormMap', texture);
-    this.updateDefines(texture, 'EZ_USE_ORM');
-  }
-
-  // @ts-expect-error: It's defined as a property in class, but is overridden here as an accessor.
-  public override get transparent(): boolean { return this._transparent; }
-  public override set transparent(value) {
-    this._transparent = value;
-    this.depthWrite = !value;
-    this.updateDefines(value, 'EZ_TRANSPARENT');
-  }
-
-  public get parallaxScale(): number { return this.uniforms.parallaxScale.value; }
-  public set parallaxScale(value) { this.setUniform('parallaxScale', value); }
-
-  public get alphaClamp(): number { return this.uniforms.alphaClamp.value; }
-  public set alphaClamp(value) { this.setUniform('alphaClamp', value); }
-
-  constructor(parameters: OctahedralImpostorMaterialParameters) {
-    if (!parameters) throw new Error('OctahedralImpostorMaterial: parameters is required.');
-    if (!parameters.spritesPerSide) throw new Error('OctahedralImpostorMaterial: spritesPerSide is required.');
-    if (!parameters.useHemiOctahedron) throw new Error('OctahedralImpostorMaterial: useHemiOctaheron is required.');
-    if (!parameters.albedo) throw new Error('OctahedralImpostorMaterial: albedo is required.');
-    if (!parameters.normalDepthMap) throw new Error('OctahedralImpostorMaterial: normalDepthMap is required.');
-
-    super();
-
-    this.spritesPerSide = parameters.spritesPerSide;
-    this.useHemiOctaheron = parameters.useHemiOctahedron;
-    this.albedo = parameters.albedo;
-    this.normalDepthMap = parameters.normalDepthMap;
-    this.ormMap = parameters.ormMap;
-    this.transparent = parameters.transparent ?? true; // TODO conf e metti default false
-    this.parallaxScale = parameters.parallaxScale ?? 0.15;
-    this.alphaClamp = parameters.alphaClamp ?? 0.5;
-  }
-
-  protected setUniform<T extends keyof OctahedralImpostorUniforms>(key: T, value: UniformValue<OctahedralImpostorUniforms[T]>): void {
-    if (!this.uniforms) return;
-
-    if (!this.uniforms[key]) {
-      this.uniforms[key] = { value } as IUniform;
-      return;
+    public set spritesPerSide(value: number) {
+      this.setUniform('u_sprites_per_side', value);
     }
 
-    this.uniforms[key].value = value;
-  }
+    public get spritesPerSide(): number {
+      return this._octahedralUniforms.u_sprites_per_side.value;
+    }
 
-  protected updateDefines(value: unknown, key: OctahedralImpostorDefines): void {
-    if (!this.defines) return;
+    public set useHemiOctahedron(value: boolean) {
+      if (value) {
+        this._octahedralDefines['EZ_USE_HEMI_OCTAHEDRON'] = '';
+      } else {
+        delete this._octahedralDefines['EZ_USE_HEMI_OCTAHEDRON'];
+      }
+      this.needsUpdate = true;
+    }
 
-    this.needsUpdate = true;
-    if (value) this.defines[key] = '';
-    else delete this.defines[key];
-  }
+    public get useHemiOctahedron(): boolean {
+      return 'EZ_USE_HEMI_OCTAHEDRON' in this._octahedralDefines;
+    }
 
-  // @ts-expect-error Property 'clone' is not assignable to the same property in base type 'ShaderMaterial'.
-  public override clone(): OctahedralImpostorMaterial {
-    return new OctahedralImpostorMaterial({
-      spritesPerSide: this.spritesPerSide,
-      useHemiOctahedron: this.useHemiOctaheron,
-      albedo: this.albedo,
-      normalDepthMap: this.normalDepthMap,
-      ormMap: this.ormMap,
-      transparent: this.transparent,
-      parallaxScale: this.parallaxScale,
-      alphaClamp: this.alphaClamp
-    });
-  }
+    constructor(...args: any[]) {
+      const parameters: U | undefined = args[0];
+
+      const useHemiOctahedron = parameters?.useHemiOctahedron ?? false;
+      const spritesPerSide = parameters?.spritesPerSide ?? 16;
+
+      const baseParameters = { ...parameters };
+      delete baseParameters.useHemiOctahedron;
+      delete baseParameters.spritesPerSide;
+
+      super(baseParameters);
+
+      this._originalOnBeforeCompile = this.onBeforeCompile;
+
+      this._octahedralDefines = {};
+      this._octahedralUniforms = {
+        'u_sprites_per_side': { value: spritesPerSide }
+      };
+
+      this.useHemiOctahedron = useHemiOctahedron;
+      this.spritesPerSide = spritesPerSide;
+
+      this.onBeforeCompile = (shader, renderer) => {
+
+        shader.defines = Object.assign({}, shader.defines, this._octahedralDefines);
+
+        shader.uniforms = {
+          ...shader.uniforms,
+          ...this._octahedralUniforms
+        };
+
+
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <clipping_planes_pars_vertex>', shaderChunkParamsVertex)
+          .replace('#include <shadowmap_vertex>', shaderChunkVertex);
+
+
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <clipping_planes_pars_fragment>', shaderChunkParamsFragment)
+          .replace('#include <normal_fragment_begin>', shaderChunkNormalFragmentBegin)
+          .replace('#include <normal_fragment_maps>', '// #include <normal_fragment_maps>')
+          .replace('#include <map_fragment>', shaderChunkMapFragment);
+
+
+        if (this._originalOnBeforeCompile) {
+          this._originalOnBeforeCompile.call(this, shader, renderer);
+        }
+
+      };
+
+      this.customProgramCacheKey = () => {
+        const base = this.type;
+        const defs = Object.keys(this._octahedralDefines).sort().join(',');
+        return `octahedralImpostor|${base}|${defs}`;
+      };
+    }
+
+    protected setUniform<T extends keyof OctahedralImpostorUniforms>(
+      key: T,
+      value: UniformValue<OctahedralImpostorUniforms[T]>
+    ): void {
+      if (!this._octahedralUniforms) return;
+
+      if (!(key in this._octahedralUniforms)) {
+        this._octahedralUniforms[key] = { value } as IUniform;
+      } else {
+        this._octahedralUniforms[key].value = value;
+      }
+    }
+
+    public override clone(): this {
+      const cloned = super.clone();
+
+      if (cloned instanceof PatchedMaterial) {
+        cloned.spritesPerSide = this.spritesPerSide;
+        cloned.useHemiOctahedron = this.useHemiOctahedron;
+      }
+
+      return cloned;
+    }
+  };
+
+  return PatchedMaterial as any;
 }
+
+export const OctahedralImpostorBasicMaterial = createOctahedralImpostorPatchedMaterial<typeof MeshBasicMaterial, OctahedralBasicMaterialParameters>(MeshBasicMaterial);
+export const OctahedralImpostorPhongMaterial = createOctahedralImpostorPatchedMaterial<typeof MeshPhongMaterial, OctahedralPhongMaterialParameters>(MeshPhongMaterial);
+export const OctahedralImpostorStandardMaterial = createOctahedralImpostorPatchedMaterial<typeof MeshStandardMaterial, OctahedralStandardMaterialParameters>(MeshStandardMaterial);
+export const OctahedralImpostorPhysicalMaterial = createOctahedralImpostorPatchedMaterial<typeof MeshPhysicalMaterial, OctahedralPhysicalMaterialParameters>(MeshPhysicalMaterial);
+
+export type OctahedralImpostorMaterial =
+  | InstanceType<typeof OctahedralImpostorBasicMaterial>
+  | InstanceType<typeof OctahedralImpostorPhongMaterial>
+  | InstanceType<typeof OctahedralImpostorStandardMaterial>
+  | InstanceType<typeof OctahedralImpostorPhysicalMaterial>;

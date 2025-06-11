@@ -1,4 +1,4 @@
-import { OctahedralImpostorMaterial } from '../core/octahedralImpostorMaterial.js';
+import { OctahedralImpostorStandardMaterial, OctahedralImpostorMaterial } from '../core/octahedralImpostorMaterial.js';
 import { createAtlasTexture, CreateTextureAtlasParams } from '../utils/createTextureAtlas.js';
 
 export interface OctahedralImpostorParams extends CreateTextureAtlasParams {
@@ -13,17 +13,13 @@ export function generateOctahedralImpostorMaterial(options: OctahedralImpostorPa
   const atlasTexture = createAtlasTexture(options);
   const albedo = atlasTexture.albedo;
   const normalDepthMap = atlasTexture.normalDepthMap;
-  const ormMap = null; // TODO
 
-  const material = new OctahedralImpostorMaterial({
-    albedo,
-    normalDepthMap,
-    ormMap,
-    parallaxScale: options.parallaxScale ?? 0.1,
-    alphaClamp: options.alphaClamp ?? 0.5,
-    transparent: options.transparent ?? false,
+  const material = new OctahedralImpostorStandardMaterial({
+    map: albedo,
+    normalMap: normalDepthMap,
     spritesPerSide: options.spritesPerSide,
-    useHemiOctahedron: options.useHemiOctahedron
+    useHemiOctahedron: options.useHemiOctahedron,
+    alphaTest: 0.5
   });
 
   return material;

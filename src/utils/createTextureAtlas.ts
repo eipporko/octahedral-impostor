@@ -1,9 +1,9 @@
-import { NoColorSpace, Object3D, OrthographicCamera, Sphere, Vector2, Vector4, WebGLRenderer, WebGLRenderTarget, Texture, LinearFilter, NearestFilter, UnsignedByteType, RGBAFormat, FloatType, ShaderMaterial, UniformsUtils, DoubleSide, GLSL3 } from 'three';
+import { NoColorSpace, Object3D, OrthographicCamera, Sphere, Vector2, Vector4, WebGLRenderer, WebGLRenderTarget, Texture, LinearFilter, NearestFilter, UnsignedByteType, SRGBColorSpace, RGBAFormat, FloatType, ShaderMaterial, UniformsUtils, DoubleSide, GLSL3 } from 'three';
 import { computeObjectBoundingSphere } from './computeObjectBoundingSphere.js';
 import { hemiOctaGridToDir, octaGridToDir } from './octahedronUtils.js';
 
-import vertexShader from '../shaders/octahedral_atlas_vertex.glsl';
-import fragmentShader from '../shaders/octahedral_atlas_fragment.glsl';
+import vertexShader from '../shaders/atlas_texture/octahedral_atlas_vertex.glsl';
+import fragmentShader from '../shaders/atlas_texture/octahedral_atlas_fragment.glsl';
 
 // TODO: convert to MeshBasicMaterial or create custoom shader
 // TODO: fix empty pixel? (example 2048 / 6 = 341.33 pixel) set clear color
@@ -219,6 +219,7 @@ function createAtlas(params: CreateTextureAtlasParams, onBeforeRender?: () => vo
     renderTarget.textures[ALBEDO].generateMipmaps = true;
     renderTarget.textures[ALBEDO].type = UnsignedByteType;
     renderTarget.textures[ALBEDO].format = RGBAFormat;
+    renderTarget.textures[ALBEDO].colorSpace = SRGBColorSpace;
 
     renderTarget.textures[NORMAL_DEPTH].minFilter = NearestFilter;
     renderTarget.textures[NORMAL_DEPTH].magFilter = NearestFilter;

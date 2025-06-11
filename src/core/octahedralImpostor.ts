@@ -6,9 +6,6 @@ import { OctahedralImpostorMaterial } from './octahedralImpostorMaterial.js';
 const planeGeometry = new PlaneGeometry();
 
 export class OctahedralImpostor extends Mesh<PlaneGeometry, OctahedralImpostorMaterial> {
-  public albedoRenderTarget: RenderTarget = null; // TODO set
-  public depthNormalMapRenderTarget: RenderTarget = null;
-  public ormMapRenderTarget: RenderTarget = null;
 
   constructor(materialOrParams: OctahedralImpostorMaterial | OctahedralImpostorParams) {
     super(planeGeometry, null);
